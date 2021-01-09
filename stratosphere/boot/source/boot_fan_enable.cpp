@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,27 +13,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <stratosphere/spl.hpp>
-
+#include <stratosphere.hpp>
 #include "boot_fan_enable.hpp"
 
-#include "gpio/gpio_utils.hpp"
+namespace ams::boot {
 
-namespace sts::boot {
-
-    namespace {
-
-        /* Convenience definitions. */
-        constexpr u32 GpioPadName_FanEnable = 0x4B;
-
-    }
-
-    void SetFanEnabled() {
+    void SetFanPowerEnabled() {
         if (spl::GetHardwareType() == spl::HardwareType::Copper) {
-            gpio::Configure(GpioPadName_FanEnable);
-            gpio::SetDirection(GpioPadName_FanEnable, GpioDirection_Output);
-            gpio::SetValue(GpioPadName_FanEnable, GpioValue_High);
+            /* TODO */
+            /* boot::gpio::Configure(GpioPadName_FanEnable);                          */
+            /* boot::gpio::SetDirection(GpioPadName_FanEnable, GpioDirection_Output); */
+            /* boot::gpio::SetValue(GpioPadName_FanEnable, GpioValue_High);           */
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,7 +16,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <atmosphere.h>
+#include <vapours/ams_version.h>
 #include "utils.h"
 #include "masterkey.h"
 #include "stratosphere.h"
@@ -29,7 +29,7 @@
 #define u8 uint8_t
 #define u32 uint32_t
 #include "thermosphere_bin.h"
-#include "lib/log.h"
+#include "../../../fusee/common/log.h"
 #undef u8
 #undef u32
 
@@ -44,7 +44,7 @@ static inline size_t align_to_4(size_t s) {
     return ((s + 3) >> 2) << 2;
 }
 
-void package2_rebuild_and_copy(package2_header_t *package2, uint32_t target_firmware, void *emummc, size_t emummc_size) {
+void package2_rebuild_and_copy(package2_header_t *package2, uint32_t target_firmware, void *mesosphere, size_t mesosphere_size, void *emummc, size_t emummc_size) {
     package2_header_t *rebuilt_package2;
     size_t rebuilt_package2_size;
     void *kernel;
@@ -87,20 +87,38 @@ void package2_rebuild_and_copy(package2_header_t *package2, uint32_t target_firm
     }
 
     /* Perform any patches we want to the NX kernel. */
-    package2_patch_kernel(kernel, kernel_size, is_sd_kernel, (void *)&orig_ini1);
+    package2_patch_kernel(kernel, &kernel_size, is_sd_kernel, (void *)&orig_ini1, target_firmware);
 
     /* Ensure we know where embedded INI is if present, and we don't if not. */
-    if ((target_firmware < ATMOSPHERE_TARGET_FIRMWARE_800 && orig_ini1 != NULL) ||
-        (target_firmware >= ATMOSPHERE_TARGET_FIRMWARE_800 && orig_ini1 == NULL)) {
+    if ((target_firmware < ATMOSPHERE_TARGET_FIRMWARE_8_0_0 && orig_ini1 != NULL) ||
+        (target_firmware >= ATMOSPHERE_TARGET_FIRMWARE_8_0_0 && orig_ini1 == NULL)) {
         fatal_error("Error: inappropriate kernel embedded ini context");
     }
 
+    /* Use mesosphere instead of Nintendo's kernel when present. */
+    const bool is_mesosphere = mesosphere != NULL && mesosphere_size != 0;
+    if (is_mesosphere) {
+        kernel = mesosphere;
+        kernel_size = mesosphere_size;
+
+        /* Patch mesosphere to use our rebuilt ini. */
+        *(volatile uint64_t *)((uintptr_t)mesosphere + 8) = (uint64_t)mesosphere_size;
+
+        /* Place the kernel section at the correct location. */
+        package2->metadata.section_offsets[PACKAGE2_SECTION_KERNEL] = 0x60000;
+        package2->metadata.entrypoint                               = 0x60000;
+
+        print(SCREEN_LOG_LEVEL_DEBUG, "Using Mesosphere...\n");
+    }
+
     print(SCREEN_LOG_LEVEL_DEBUG, "Rebuilding the INI1 section...\n");
-    if (target_firmware < ATMOSPHERE_TARGET_FIRMWARE_800) {
+    if (target_firmware < ATMOSPHERE_TARGET_FIRMWARE_8_0_0) {
         package2_get_src_section((void *)&orig_ini1, package2, PACKAGE2_SECTION_INI1);
-    } else {
+    }
+
+    if (target_firmware >= ATMOSPHERE_TARGET_FIRMWARE_8_0_0 || is_mesosphere) {
         /* On 8.0.0, place INI1 right after kernelldr for our sanity. */
-        package2->metadata.section_offsets[PACKAGE2_SECTION_INI1] = package2->metadata.section_offsets[PACKAGE2_SECTION_KERNEL] + package2->metadata.section_sizes[PACKAGE2_SECTION_KERNEL];
+        package2->metadata.section_offsets[PACKAGE2_SECTION_INI1] = package2->metadata.section_offsets[PACKAGE2_SECTION_KERNEL] + kernel_size;
     }
 
     /* Perform any patches to the INI1, rebuilding it (This is where our built-in sysmodules will be added.) */
@@ -232,7 +250,7 @@ static bool package2_validate_metadata(package2_meta_t *metadata, uint8_t data[]
 
     /* Perform version checks. */
     /* We will be compatible with all package2s released before current, but not newer ones. */
-    if (metadata->version_max >= PACKAGE2_MINVER_THEORETICAL && metadata->version_min < PACKAGE2_MAXVER_900_CURRENT) {
+    if (metadata->version_max >= PACKAGE2_MINVER_THEORETICAL && metadata->version_min < PACKAGE2_MAXVER_1100_CURRENT) {
         return true;
     }
 

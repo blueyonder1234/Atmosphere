@@ -14,15 +14,15 @@ PHDRS
 MEMORY
 {
     main        : ORIGIN = 0xF0000000, LENGTH = 0x10000000
-    high_iram   : ORIGIN = 0x40010000, LENGTH = 0x20000
-    low_iram    : ORIGIN = 0x40003000, LENGTH = 0x8000
+    high_iram   : ORIGIN = 0x40010000, LENGTH = 0x8000
+    low_iram    : ORIGIN = 0x40002000, LENGTH = 0x6000
 }
 
 SECTIONS
 {
     PROVIDE(__start__           = 0xF0000000);
-    PROVIDE(__stack_top__       = 0x90020000);
-    PROVIDE(__stack_bottom__    = 0x90010000);
+    PROVIDE(__stack_top__       = 0x40010000);
+    PROVIDE(__stack_bottom__    = 0x40008000);
     PROVIDE(__heap_start__      = 0x90020000);
     PROVIDE(__heap_end__        = 0xA0020000);
 
@@ -63,8 +63,14 @@ SECTIONS
         PROVIDE (__nxboot_lma__    = LOADADDR(.nxboot_loadable));
         KEEP(*(.nxboot.text.start))
         nxboot_iram.o(.text*)
+        cluster.o(.text*)
+        car.o(.text*)
         nxboot_iram.o(.rodata*)
+        cluster.o(.rodata*)
+        car.o(.rodata*)
         nxboot_iram.o(.data*)
+        cluster.o(.data*)
+        car.o(.data*)
         . = ALIGN(32);
     } >high_iram AT>main :nxboot
 
@@ -73,6 +79,8 @@ SECTIONS
         . = ALIGN(32);
         PROVIDE (__nxboot_bss_start__ = ABSOLUTE(.));
         nxboot_iram.o(.bss* COMMON)
+        cluster.o(.bss* COMMON)
+        car.o(.bss* COMMON)
         . = ALIGN(32);
         PROVIDE (__nxboot_end__ = ABSOLUTE(.));
     } >high_iram :NONE
@@ -228,8 +236,10 @@ SECTIONS
     PROVIDE(__fusee_primary_bin_size__ = fusee_primary_bin_end - fusee_primary_bin);
     PROVIDE(__loader_kip_start__ = loader_kip - __start__);
     PROVIDE(__loader_kip_size__ = loader_kip_end - loader_kip);
-    PROVIDE(__lp0fw_bin_start__ = lp0fw_bin - __start__);
-    PROVIDE(__lp0fw_bin_size__ = lp0fw_bin_end - lp0fw_bin);
+    PROVIDE(__warmboot_bin_start__ = warmboot_bin - __start__);
+    PROVIDE(__warmboot_bin_size__ = warmboot_bin_end - warmboot_bin);
+    PROVIDE(__ncm_kip_start__ = ncm_kip - __start__);
+    PROVIDE(__ncm_kip_size__ = ncm_kip_end - ncm_kip);
     PROVIDE(__pm_kip_start__ = pm_kip - __start__);
     PROVIDE(__pm_kip_size__ = pm_kip_end - pm_kip);
     PROVIDE(__rebootstub_bin_start__ = rebootstub_bin - __start__);
@@ -244,10 +254,16 @@ SECTIONS
     PROVIDE(__sm_kip_size__ = sm_kip_end - sm_kip);
     PROVIDE(__spl_kip_start__ = spl_kip - __start__);
     PROVIDE(__spl_kip_size__ = spl_kip_end - spl_kip);
-    PROVIDE(__splash_screen_bmp_start__ = splash_screen_bmp - __start__);
-    PROVIDE(__splash_screen_bmp_size__ = splash_screen_bmp_end - splash_screen_bmp);
+    PROVIDE(__splash_screen_bin_start__ = splash_screen_bin - __start__);
+    PROVIDE(__splash_screen_bin_size__ = splash_screen_bin_end - splash_screen_bin);
     PROVIDE(__thermosphere_bin_start__ = thermosphere_bin - __start__);
     PROVIDE(__thermosphere_bin_size__ = thermosphere_bin_end - thermosphere_bin);
     PROVIDE(__emummc_kip_start__ = emummc_kip - __start__);
     PROVIDE(__emummc_kip_size__ = emummc_kip_end - emummc_kip);
+    PROVIDE(__kernel_ldr_bin_start__ = kernel_ldr_bin - __start__);
+    PROVIDE(__kernel_ldr_bin_size__ = kernel_ldr_bin_end - kernel_ldr_bin);
+    PROVIDE(__mesosphere_bin_start__ = mesosphere_bin - __start__);
+    PROVIDE(__mesosphere_bin_size__ = mesosphere_bin_end - mesosphere_bin);
+    PROVIDE(__mariko_fatal_bin_start__ = mariko_fatal_bin - __start__);
+    PROVIDE(__mariko_fatal_bin_size__ = mariko_fatal_bin_end - mariko_fatal_bin);
 }

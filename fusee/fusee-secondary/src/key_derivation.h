@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #ifndef FUSEE_KEYDERIVATION_H
 #define FUSEE_KEYDERIVATION_H
 
@@ -47,9 +47,9 @@ typedef struct nx_keyblob_t {
     };
 } nx_keyblob_t;
 
-int derive_nx_keydata(uint32_t target_firmware, const nx_keyblob_t *keyblobs, uint32_t available_revision, const void *tsec_key, void *tsec_root_key, unsigned int *out_keygen_type);
+int derive_nx_keydata_erista(uint32_t target_firmware, const nx_keyblob_t *keyblobs, uint32_t available_revision, const void *tsec_key, void *tsec_root_key, unsigned int *out_keygen_type);
+int derive_nx_keydata_mariko(uint32_t target_firmware);
 int load_package1_key(uint32_t revision);
-void finalize_nx_keydata(uint32_t target_firmware);
 void derive_bis_key(void *dst, BisPartition partition_id, uint32_t target_firmware);
 
 #endif

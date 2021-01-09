@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,20 +16,22 @@
 
 #include "fs_utils.h"
 #include "mc.h"
-#include "lib/fatfs/ff.h"
-#include "lib/log.h"
+#include "../../../fusee/common/fatfs/ff.h"
+#include "../../../fusee/common/log.h"
 
 FATFS sd_fs;
 static bool g_sd_mounted = false;
 static bool g_sd_initialized = false;
 static bool g_ahb_redirect_enabled = false;
+sdmmc_t g_sd_sdmmc;
+sdmmc_device_t g_sd_device;
 
 bool mount_sd(void)
 {
     /* Already mounted. */
     if (g_sd_mounted)
         return true;
-    
+
     /* Enable AHB redirection if necessary. */
     if (!g_ahb_redirect_enabled) {
         mc_enable_ahb_redirect();
@@ -38,10 +40,10 @@ bool mount_sd(void)
 
     if (!g_sd_initialized) {
         /* Initialize SD. */
-        if (sdmmc_device_sd_init(&g_sd_device, &g_sd_sdmmc, SDMMC_BUS_WIDTH_4BIT, SDMMC_SPEED_UHS_SDR104))
+        if (sdmmc_device_sd_init(&g_sd_device, &g_sd_sdmmc, SDMMC_BUS_WIDTH_4BIT, SDMMC_SPEED_SD_SDR104))
         {
             g_sd_initialized = true;
-            
+
             /* Mount SD. */
             if (f_mount(&sd_fs, "", 1) == FR_OK) {
                 print(SCREEN_LOG_LEVEL_INFO, "Mounted SD card!\n");
@@ -63,7 +65,7 @@ void unmount_sd(void)
         sdmmc_device_finish(&g_sd_device);
         g_sd_mounted = false;
     }
-    
+
     /* Disable AHB redirection if necessary. */
     if (g_ahb_redirect_enabled) {
         mc_disable_ahb_redirect();
@@ -81,13 +83,13 @@ uint32_t get_file_size(const char *filename)
     FIL f;
     if (f_open(&f, filename, FA_READ) != FR_OK)
         return 0;
-    
+
     /* Get the file size. */
     uint32_t file_size = f_size(&f);
-    
+
     /* Close the file. */
     f_close(&f);
-    
+
     return file_size;
 }
 
@@ -101,10 +103,10 @@ int read_from_file(void *dst, uint32_t dst_size, const char *filename)
     FIL f;
     if (f_open(&f, filename, FA_READ) != FR_OK)
         return 0;
-    
+
     /* Sync. */
     f_sync(&f);
-        
+
     /* Read from file. */
     UINT br = 0;
     int res = f_read(&f, dst, dst_size, &br);
@@ -118,7 +120,7 @@ int write_to_file(void *src, uint32_t src_size, const char *filename)
     /* SD card hasn't been mounted yet. */
     if (!g_sd_mounted)
         return 0;
-    
+
     /* Open the file for writing. */
     FIL f;
     if (f_open(&f, filename, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK)

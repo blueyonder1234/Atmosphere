@@ -34,6 +34,7 @@
 #define FS_OFFSET_100_LOCK_MUTEX          0x2884
 #define FS_OFFSET_100_UNLOCK_MUTEX        0x28F0
 
+#define FS_OFFSET_100_SDMMC_WRAPPER_CONTROLLER_OPEN  0
 #define FS_OFFSET_100_SDMMC_WRAPPER_CONTROLLER_CLOSE 0x6A8AC
 
 // Misc Data
@@ -48,10 +49,8 @@
 // Nintendo Paths
 #define FS_OFFSET_100_NINTENDO_PATHS \
 { \
-    {.opcode_reg = 9, .adrp_offset = 0x00032C58, .add_rel_offset = 4}, \
-    {.opcode_reg = 8, .adrp_offset = 0x00032C60, .add_rel_offset = 4}, \
-    {.opcode_reg = 9, .adrp_offset = 0x00032F3C, .add_rel_offset = 4}, \
-    {.opcode_reg = 8, .adrp_offset = 0x00032F44, .add_rel_offset = 4}, \
+    {.opcode_reg = 8, .adrp_offset = 0x00032C58, .add_rel_offset = 8}, \
+    {.opcode_reg = 9, .adrp_offset = 0x00032F40, .add_rel_offset = 8}, \
     {.opcode_reg = 0, .adrp_offset = 0, .add_rel_offset = 0}, \
 }
 

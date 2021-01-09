@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,17 +17,26 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include "utils.h"
-#include "lib/log.h"
+#include "../../../fusee/common/display/video_fb.h"
+#include "../../../fusee/common/log.h"
 
 __attribute__ ((noreturn)) void generic_panic(void) {
-    print(SCREEN_LOG_LEVEL_ERROR, "Panic raised!");
-    
     while (true) {
         /* Lock. */
     }
 }
 
 __attribute__((noreturn)) void fatal_error(const char *fmt, ...) {
+    /* Forcefully initialize the screen if logging is disabled. */
+    if (log_get_log_level() == SCREEN_LOG_LEVEL_NONE) {
+        /* Zero-fill the framebuffer and register it as printk provider. */
+        video_init((void *)0xC0000000);
+        
+        /* Override the global logging level. */
+        log_set_log_level(SCREEN_LOG_LEVEL_ERROR);
+    }
+    
+    /* Display fatal error. */
     va_list args;
     print(SCREEN_LOG_LEVEL_ERROR, "Fatal error: ");
     va_start(args, fmt);

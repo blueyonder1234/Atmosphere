@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,12 +13,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <stratosphere/reg.hpp>
+#include <stratosphere.hpp>
 #include "boot_check_clock.hpp"
 #include "boot_power_utils.hpp"
 
-namespace sts::boot {
+namespace ams::boot {
 
     namespace {
 
@@ -36,7 +35,8 @@ namespace sts::boot {
 
         /* Helpers. */
         bool IsUsbClockValid() {
-            uintptr_t car_regs = GetIoMapping(0x60006000ul, 0x1000);
+            uintptr_t car_regs = dd::QueryIoMapping(0x60006000ul, os::MemoryPageSize);
+            AMS_ASSERT(car_regs != 0);
 
             const u32 pllu = reg::Read(car_regs + 0xC0);
             const u32 utmip = reg::Read(car_regs + 0x480);
@@ -48,7 +48,7 @@ namespace sts::boot {
     void CheckClock() {
         if (!IsUsbClockValid()) {
             /* Sleep for 1s, then reboot. */
-            svcSleepThread(1'000'000'000ul);
+            os::SleepThread(TimeSpan::FromSeconds(1));
             RebootSystem();
         }
     }

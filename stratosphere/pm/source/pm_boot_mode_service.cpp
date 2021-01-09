@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,10 +13,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include <stratosphere.hpp>
 #include "pm_boot_mode_service.hpp"
 
-namespace sts::pm::bm {
+namespace ams::pm {
 
     namespace {
 
@@ -26,16 +26,20 @@ namespace sts::pm::bm {
     }
 
     /* Override of weakly linked boot_mode_api functions. */
-    BootMode GetBootMode() {
-        return g_boot_mode;
-    }
+    namespace bm {
 
-    void SetMaintenanceBoot() {
-        g_boot_mode = BootMode::Maintenance;
+        BootMode GetBootMode() {
+            return g_boot_mode;
+        }
+
+        void SetMaintenanceBoot() {
+            g_boot_mode = BootMode::Maintenance;
+        }
+
     }
 
     /* Service command implementations. */
-    void BootModeService::GetBootMode(Out<u32> out) {
+    void BootModeService::GetBootMode(sf::Out<u32> out) {
         out.SetValue(static_cast<u32>(pm::bm::GetBootMode()));
     }
 

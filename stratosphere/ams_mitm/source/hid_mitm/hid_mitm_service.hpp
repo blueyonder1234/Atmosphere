@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,40 +15,34 @@
  */
 
 #pragma once
-#include <switch.h>
 #include <stratosphere.hpp>
 
-#include "../utils.hpp"
+namespace ams::mitm::hid {
 
-class HidMitmService : public IMitmServiceObject {
-    private:
-        enum class CommandId {
-            SetSupportedNpadStyleSet = 100,
-        };
-    private:
-        bool should_set_system_ext = false;
-    public:
-        HidMitmService(std::shared_ptr<Service> s, u64 pid, sts::ncm::TitleId tid) : IMitmServiceObject(s, pid, tid) {
-            /* ... */
-        }
+    namespace {
 
-        ~HidMitmService();
+        #define AMS_HID_MITM_INTERFACE_INFO(C, H) \
+            AMS_SF_METHOD_INFO(C, H, 100, Result, SetSupportedNpadStyleSet, (const sf::ClientAppletResourceUserId &client_aruid, u32 style_set))
 
-        static bool ShouldMitm(u64 pid, sts::ncm::TitleId tid) {
-            /* TODO: Consider removing in Atmosphere 0.10.0/1.0.0. */
-            /* We will mitm:
-             * - hbl, to help homebrew not need to be recompiled.
-             */
-            return Utils::IsHblTid(static_cast<u64>(tid));
-        }
+        AMS_SF_DEFINE_MITM_INTERFACE(IHidMitmInterface, AMS_HID_MITM_INTERFACE_INFO)
 
-        static void PostProcess(IMitmServiceObject *obj, IpcResponseContext *ctx);
+    }
 
-    protected:
-        /* Overridden commands. */
-        Result SetSupportedNpadStyleSet(u64 applet_resource_user_id, u32 style_set, PidDescriptor pid_desc);
-    public:
-        DEFINE_SERVICE_DISPATCH_TABLE {
-            MAKE_SERVICE_COMMAND_META(HidMitmService, SetSupportedNpadStyleSet),
-        };
-};
+    class HidMitmService : public sf::MitmServiceImplBase {
+        public:
+            using MitmServiceImplBase::MitmServiceImplBase;
+        public:
+            static bool ShouldMitm(const sm::MitmProcessInfo &client_info) {
+                /* TODO: Remove in Atmosphere 0.10.2. */
+                /* We will mitm:
+                 * - hbl, to help homebrew not need to be recompiled.
+                 */
+                return client_info.override_status.IsHbl();
+            }
+        public:
+            /* Overridden commands. */
+            Result SetSupportedNpadStyleSet(const sf::ClientAppletResourceUserId &client_aruid, u32 style_set);
+    };
+    static_assert(IsIHidMitmInterface<HidMitmService>);
+
+}

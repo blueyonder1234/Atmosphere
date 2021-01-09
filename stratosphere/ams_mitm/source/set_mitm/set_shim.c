@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,47 +13,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "set_shim.h"
 
-#include <string.h>
-#include <switch.h>
-#include "setsys_shim.h"
+static Result _setCmdNoInOut64(Service* srv, u64 *out, u32 cmd_id) {
+    return serviceDispatchOut(srv, cmd_id, *out);
+}
 
-/* Command forwarders. */
-Result setGetAvailableLanguageCodesFwd(Service* s, s32 *total_entries, u64 *language_codes, size_t max_entries) {
-    IpcCommand c;
-    ipcInitialize(&c);
-    ipcAddRecvStatic(&c, language_codes, max_entries * sizeof(*language_codes), 0);
+static Result _setCmdNoInOutU32(Service* srv, u32 *out, u32 cmd_id) {
+    return serviceDispatchOut(srv, cmd_id, *out);
+}
 
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
+/* Forwarding shims. */
+Result setGetLanguageCodeFwd(Service *s, u64* out) {
+    return _setCmdNoInOut64(s, out, 0);
+}
 
-    raw = serviceIpcPrepareHeader(s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 1;
-
-    Result rc = serviceIpcDispatch(s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-
-        struct {
-            u64 magic;
-            u64 result;
-            s32 total_entries;
-        } *resp;
-
-        serviceIpcParse(s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-
-        if (R_SUCCEEDED(rc)) {
-            *total_entries = resp->total_entries;
-        }
-    }
-
+Result setGetRegionCodeFwd(Service *s, SetRegion *out) {
+    s32 code=0;
+    Result rc = _setCmdNoInOutU32(s, (u32*)&code, 4);
+    if (R_SUCCEEDED(rc) && out) *out = code;
     return rc;
 }

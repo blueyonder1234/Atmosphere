@@ -30,7 +30,7 @@ enum emuMMC_Type
     emuMMC_EMMC = 0,
 
     // SD Device raw
-    emuMMC_SD,
+    emuMMC_SD_Raw,
     // SD Device File
     emuMMC_SD_File,
 
@@ -44,7 +44,7 @@ typedef struct _emuMMC_ctx_t
     enum FS_VER fs_ver;
     enum emuMMC_Type EMMC_Type;
     enum emuMMC_Type SD_Type;
-    
+
     /* Partition based */
     u64 EMMC_StoragePartitionOffset;
     u64 SD_StoragePartitionOffset;

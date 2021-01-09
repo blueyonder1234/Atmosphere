@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,29 +13,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 #pragma once
-#include <switch.h>
 #include <stratosphere.hpp>
-#include <stratosphere/pm.hpp>
 
-namespace sts::pm::bm {
+namespace ams::pm {
 
-    class BootModeService final : public IServiceObject {
-        private:
-            enum class CommandId {
-                GetBootMode        = 0,
-                SetMaintenanceBoot = 1,
-            };
-        private:
-            /* Actual command implementations. */
-            void GetBootMode(Out<u32> out);
-            void SetMaintenanceBoot();
+    class BootModeService final {
         public:
-            DEFINE_SERVICE_DISPATCH_TABLE {
-                MAKE_SERVICE_COMMAND_META(BootModeService, GetBootMode),
-                MAKE_SERVICE_COMMAND_META(BootModeService, SetMaintenanceBoot),
-            };
+            void GetBootMode(sf::Out<u32> out);
+            void SetMaintenanceBoot();
     };
+    static_assert(pm::impl::IsIBootModeInterface<BootModeService>);
 
 }

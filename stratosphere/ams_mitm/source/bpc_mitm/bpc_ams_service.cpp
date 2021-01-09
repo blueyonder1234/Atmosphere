@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,20 +13,35 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <mutex>
-#include <switch.h>
 #include <stratosphere.hpp>
+#include "../amsmitm_initialization.hpp"
 #include "bpc_ams_service.hpp"
-#include "bpcmitm_reboot_manager.hpp"
+#include "bpc_ams_power_utils.hpp"
 
-Result BpcAtmosphereService::RebootToFatalError(InBuffer<AtmosphereFatalErrorContext> ctx) {
-    if (ctx.buffer == nullptr || ctx.num_elements != 1) {
-        return ResultKernelConnectionClosed;
+namespace ams::mitm::bpc {
+
+    namespace {
+
+        bool g_set_initial_payload = false;
+
     }
 
-    /* Reboot to fusee with the input context. */
-    BpcRebootManager::RebootForFatalError(ctx.buffer);
+    void AtmosphereService::RebootToFatalError(const ams::FatalErrorContext &ctx) {
+        bpc::RebootForFatalError(&ctx);
+    }
 
-    return ResultSuccess;
+    void AtmosphereService::SetRebootPayload(const ams::sf::InBuffer &payload) {
+        /* Set the reboot payload. */
+        bpc::SetRebootPayload(payload.GetPointer(), payload.GetSize());
+
+        /* If this is being called for the first time (by boot sysmodule), */
+        /* Then we should kick off the rest of init. */
+        if (!g_set_initial_payload) {
+            g_set_initial_payload = true;
+
+            /* Start the initialization process. */
+            ::ams::mitm::StartInitialize();
+        }
+    }
+
 }

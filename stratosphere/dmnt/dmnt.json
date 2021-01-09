@@ -10,12 +10,14 @@
 	"is_retail":	true,
 	"pool_partition":	2,
 	"is_64_bit":	true,
-	"address_space_type":	1,
+	"address_space_type":	3,
+    "disable_device_address_space_merge":    true,
 	"filesystem_access":	{
 		"permissions":	"0xFFFFFFFFFFFFFFFF"
 	},
 	"service_access":	[
         "pm:dmnt",
+        "pm:info",
         "ldr:dmnt",
         "ro:dmnt",
         "ns:dev",

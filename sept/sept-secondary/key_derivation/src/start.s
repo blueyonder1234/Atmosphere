@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -96,4 +96,5 @@ _start:
     ldr x0, =__start__
     mov sp, x0
     mov fp, #0x0
+
     bl derive_keys

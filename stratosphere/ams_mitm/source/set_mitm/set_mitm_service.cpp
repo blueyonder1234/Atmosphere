@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,98 +13,118 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <mutex>
-#include <algorithm>
-#include <switch.h>
+#include <stratosphere.hpp>
 #include "set_mitm_service.hpp"
 #include "set_shim.h"
 
-void SetMitmService::PostProcess(IMitmServiceObject *obj, IpcResponseContext *ctx) {
-    /* No commands need postprocessing. */
-}
+namespace ams::mitm::settings {
 
-bool SetMitmService::IsValidLanguageCode(u64 lang_code) {
-    static constexpr u64 s_valid_language_codes[] = {
-        LanguageCode_Japanese,
-        LanguageCode_AmericanEnglish,
-        LanguageCode_French,
-        LanguageCode_German,
-        LanguageCode_Italian,
-        LanguageCode_Spanish,
-        LanguageCode_Chinese,
-        LanguageCode_Korean,
-        LanguageCode_Dutch,
-        LanguageCode_Portuguese,
-        LanguageCode_Russian,
-        LanguageCode_Taiwanese,
-        LanguageCode_BritishEnglish,
-        LanguageCode_CanadianFrench,
-        LanguageCode_LatinAmericanSpanish,
-        LanguageCode_SimplifiedChinese,
-        LanguageCode_TraditionalChinese,
-    };
-    size_t num_language_codes = sts::util::size(s_valid_language_codes);
-    if (GetRuntimeFirmwareVersion() < FirmwareVersion_400) {
-        /* 4.0.0 added simplified and traditional chinese. */
-        num_language_codes -= 2;
+    using namespace ams::settings;
+
+    namespace {
+
+        constinit os::ProcessId g_application_process_id = os::InvalidProcessId;
+        constinit cfg::OverrideLocale g_application_locale;
+        constinit bool g_valid_language;
+        constinit bool g_valid_region;
     }
 
-    for (size_t i = 0; i < num_language_codes; i++) {
-        if (lang_code == s_valid_language_codes[i]) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool SetMitmService::IsValidRegionCode(u32 region_code) {
-    return region_code < RegionCode_Max;
-}
-
-Result SetMitmService::EnsureLocale() {
-    std::scoped_lock<HosMutex> lk(this->lock);
-
-    if (!this->got_locale) {
-        std::memset(&this->locale, 0xCC, sizeof(this->locale));
-        if (this->title_id == sts::ncm::TitleId::Ns) {
-            u64 app_pid = 0;
-            u64 app_tid = 0;
-            R_TRY(pmdmntGetApplicationPid(&app_pid));
-            R_TRY(pminfoGetTitleId(&app_tid, app_pid));
-            this->locale = Utils::GetTitleOverrideLocale(app_tid);
+    SetMitmService::SetMitmService(std::shared_ptr<::Service> &&s, const sm::MitmProcessInfo &c) : sf::MitmServiceImplBase(std::forward<std::shared_ptr<::Service>>(s), c) {
+        if (this->client_info.program_id == ncm::SystemProgramId::Ns) {
+            os::ProcessId application_process_id;
+            if (R_SUCCEEDED(pm::dmnt::GetApplicationProcessId(std::addressof(application_process_id))) && g_application_process_id == application_process_id) {
+                this->locale = g_application_locale;
+                this->is_valid_language = g_valid_language;
+                this->is_valid_region   = g_valid_region;
+                this->got_locale = true;
+            } else {
+                this->InvalidateLocale();
+            }
         } else {
-            this->locale = Utils::GetTitleOverrideLocale(static_cast<u64>(this->title_id));
-            this->got_locale = true;
+            this->InvalidateLocale();
         }
     }
 
-    return ResultSuccess;
-}
+    Result SetMitmService::EnsureLocale() {
+        /* Optimization: if locale has already been gotten, we can stop. */
+        if (AMS_LIKELY(this->got_locale)) {
+            return ResultSuccess();
+        }
 
-Result SetMitmService::GetLanguageCode(Out<u64> out_lang_code) {
-    this->EnsureLocale();
+        std::scoped_lock lk(this->lock);
 
-    if (!IsValidLanguageCode(this->locale.language_code)) {
-        return ResultAtmosphereMitmShouldForwardToSession;
+        const bool is_ns = this->client_info.program_id == ncm::SystemProgramId::Ns;
+
+        if (!this->got_locale) {
+            ncm::ProgramId program_id = this->client_info.program_id;
+            os::ProcessId application_process_id = os::InvalidProcessId;
+
+            if (is_ns) {
+                /* When NS asks for a locale, refresh to get the current application locale. */
+                R_TRY(pm::dmnt::GetApplicationProcessId(std::addressof(application_process_id)));
+                R_TRY(pm::info::GetProgramId(std::addressof(program_id), application_process_id));
+            }
+            this->locale            = cfg::GetOverrideLocale(program_id);
+            this->is_valid_language = settings::IsValidLanguageCode(this->locale.language_code);
+            this->is_valid_region   = settings::IsValidRegionCode(this->locale.region_code);
+            this->got_locale        = true;
+
+            if (is_ns) {
+                g_application_locale     = this->locale;
+                g_valid_language         = this->is_valid_language;
+                g_valid_region           = this->is_valid_region;
+                g_application_process_id = application_process_id;
+            }
+        }
+
+        return ResultSuccess();
     }
 
-    out_lang_code.SetValue(this->locale.language_code);
-    return ResultSuccess;
-}
+    void SetMitmService::InvalidateLocale() {
+        std::scoped_lock lk(this->lock);
 
-Result SetMitmService::GetRegionCode(Out<u32> out_region_code) {
-    this->EnsureLocale();
-
-    if (!IsValidRegionCode(this->locale.region_code)) {
-        return ResultAtmosphereMitmShouldForwardToSession;
+        std::memset(std::addressof(this->locale), 0xCC, sizeof(this->locale));
+        this->is_valid_language = false;
+        this->is_valid_region   = false;
+        this->got_locale        = false;
     }
 
-    out_region_code.SetValue(this->locale.region_code);
-    return ResultSuccess;
-}
+    Result SetMitmService::GetLanguageCode(sf::Out<settings::LanguageCode> out) {
+        this->EnsureLocale();
 
-Result SetMitmService::GetAvailableLanguageCodes(OutPointerWithClientSize<u64> out_language_codes, Out<s32> out_count) {
-    return setGetAvailableLanguageCodesFwd(this->forward_service.get(), out_count.GetPointer(), out_language_codes.pointer, out_language_codes.num_elements);
+        /* If there's no override locale, just use the actual one. */
+        if (AMS_UNLIKELY(!this->is_valid_language)) {
+            static_assert(sizeof(u64) == sizeof(settings::LanguageCode));
+            R_TRY(setGetLanguageCodeFwd(this->forward_service.get(), reinterpret_cast<u64 *>(std::addressof(this->locale.language_code))));
+
+            this->is_valid_language = true;
+            if (this->client_info.program_id == ncm::SystemProgramId::Ns) {
+                g_application_locale.language_code = this->locale.language_code;
+                g_valid_language                   = true;
+            }
+        }
+
+        out.SetValue(this->locale.language_code);
+        return ResultSuccess();
+    }
+
+    Result SetMitmService::GetRegionCode(sf::Out<settings::RegionCode> out) {
+        this->EnsureLocale();
+
+        /* If there's no override locale, just use the actual one. */
+        if (AMS_UNLIKELY(!this->is_valid_region)) {
+            static_assert(sizeof(::SetRegion) == sizeof(settings::RegionCode));
+            R_TRY(setGetRegionCodeFwd(this->forward_service.get(), reinterpret_cast<::SetRegion *>(std::addressof(this->locale.region_code))));
+
+            this->is_valid_region = true;
+            if (this->client_info.program_id == ncm::SystemProgramId::Ns) {
+                g_application_locale.region_code = this->locale.region_code;
+                g_valid_region                   = true;
+            }
+        }
+
+        out.SetValue(this->locale.region_code);
+        return ResultSuccess();
+    }
+
 }

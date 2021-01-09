@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -38,7 +38,10 @@
 #define PACKAGE2_MAXVER_620 0x9
 #define PACKAGE2_MAXVER_700_800 0xA
 #define PACKAGE2_MAXVER_810 0xB
-#define PACKAGE2_MAXVER_900_CURRENT 0xC
+#define PACKAGE2_MAXVER_900 0xC
+#define PACKAGE2_MAXVER_910_920 0xD
+#define PACKAGE2_MAXVER_1000 0xE
+#define PACKAGE2_MAXVER_1100_CURRENT 0xF
 
 #define PACKAGE2_MINVER_100 0x3
 #define PACKAGE2_MINVER_200 0x4
@@ -50,7 +53,10 @@
 #define PACKAGE2_MINVER_620 0xA
 #define PACKAGE2_MINVER_700_800 0xB
 #define PACKAGE2_MINVER_810 0xC
-#define PACKAGE2_MINVER_900_CURRENT 0xD
+#define PACKAGE2_MINVER_900 0xD
+#define PACKAGE2_MINVER_910_920 0xE
+#define PACKAGE2_MINVER_1000 0xF
+#define PACKAGE2_MINVER_1100_CURRENT 0x10
 
 #define NX_BOOTLOADER_PACKAGE2_LOAD_ADDRESS ((void *)(0xA9800000ull))
 
@@ -90,6 +96,6 @@ static inline uint8_t package2_meta_get_header_version(const package2_meta_t *me
     return (uint8_t)((metadata->ctr_dwords[1] ^ (metadata->ctr_dwords[1] >> 16) ^ (metadata->ctr_dwords[1] >> 24)) & 0xFF);
 }
 
-void package2_rebuild_and_copy(package2_header_t *package2, uint32_t target_firmware, void *emummc, size_t emummc_size);
+void package2_rebuild_and_copy(package2_header_t *package2, uint32_t target_firmware, void *mesosphere, size_t mesosphere_size, void *emummc, size_t emummc_size);
 
 #endif

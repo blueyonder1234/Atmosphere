@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "device_partition.h"
+#include "key_derivation.h"
 
 #define RAWDEV_MAX_DEVICES 16
 
@@ -28,6 +29,8 @@ int rawdev_mount_device(const char *name, const device_partition_t *devpart, boo
 int rawdev_register_device(const char *name);
 int rawdev_unregister_device(const char *name);
 int rawdev_unmount_device(const char *name);        /* also unregisters. */
+
+int rawdev_register_keys(const char *name, unsigned int target_firmware, BisPartition part);
 
 int rawdev_unmount_all(void);
 

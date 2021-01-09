@@ -1,6 +1,6 @@
 /**
  * @file set_shim.h
- * @brief Settings Services (set) IPC wrapper. To be merged into libnx, eventually.
+ * @brief Settings Services (fs) IPC wrapper for set.mitm.
  * @author SciresM
  * @copyright libnx Authors
  */
@@ -11,8 +11,9 @@
 extern "C" {
 #endif
 
-/* Command forwarders. */
-Result setGetAvailableLanguageCodesFwd(Service* s, s32 *total_entries, u64 *language_codes, size_t max_entries);
+/* Forwarding shims. */
+Result setGetLanguageCodeFwd(Service *s, u64* out);
+Result setGetRegionCodeFwd(Service *s, SetRegion *out);
 
 #ifdef __cplusplus
 }

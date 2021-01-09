@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,63 +13,60 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include <stratosphere.hpp>
 #include "boot_i2c_utils.hpp"
 
-namespace sts::boot {
+namespace ams::boot {
 
     namespace {
 
         template<typename F>
         constexpr Result RetryUntilSuccess(F f) {
-            constexpr u64 timeout = 10'000'000'000ul;
-            constexpr u64 retry_interval = 20'000'000ul;
+            constexpr auto Timeout = TimeSpan::FromSeconds(10);
+            constexpr auto RetryInterval = TimeSpan::FromMilliSeconds(20);
 
-            u64 cur_time = 0;
+            TimeSpan cur_time = TimeSpan(0);
             while (true) {
-                R_TRY_CLEANUP(f(), {
-                    cur_time += retry_interval;
-                    if (cur_time < timeout) {
-                        svcSleepThread(retry_interval);
-                        continue;
-                    }
-                });
-                return ResultSuccess;
+                const auto retry_result = f();
+                R_SUCCEED_IF(R_SUCCEEDED(retry_result));
+
+                cur_time += RetryInterval;
+                R_UNLESS(cur_time < Timeout, retry_result);
+
+                os::SleepThread(RetryInterval);
             }
         }
 
     }
 
-    Result ReadI2cRegister(i2c::driver::Session &session, u8 *dst, size_t dst_size, const u8 *cmd, size_t cmd_size) {
-        if (dst == nullptr || dst_size == 0 || cmd == nullptr || cmd_size == 0) {
-            std::abort();
-        }
+    Result ReadI2cRegister(i2c::driver::I2cSession &session, u8 *dst, size_t dst_size, const u8 *cmd, size_t cmd_size) {
+        AMS_ABORT_UNLESS(dst != nullptr && dst_size > 0);
+        AMS_ABORT_UNLESS(cmd != nullptr && cmd_size > 0);
 
-        u8 cmd_list[i2c::CommandListFormatter::MaxCommandListSize];
-
+        u8 cmd_list[i2c::CommandListLengthMax];
         i2c::CommandListFormatter formatter(cmd_list, sizeof(cmd_list));
-        R_ASSERT(formatter.EnqueueSendCommand(I2cTransactionOption_Start, cmd, cmd_size));
-        R_ASSERT(formatter.EnqueueReceiveCommand(static_cast<I2cTransactionOption>(I2cTransactionOption_Start | I2cTransactionOption_Stop), dst_size));
 
-        return RetryUntilSuccess([&]() { return i2c::driver::ExecuteCommandList(session, dst, dst_size, cmd_list, formatter.GetCurrentSize()); });
+        R_ABORT_UNLESS(formatter.EnqueueSendCommand(i2c::TransactionOption_StartCondition, cmd, cmd_size));
+        R_ABORT_UNLESS(formatter.EnqueueReceiveCommand(static_cast<i2c::TransactionOption>(i2c::TransactionOption_StartCondition | i2c::TransactionOption_StopCondition), dst_size));
+
+        return RetryUntilSuccess([&]() { return i2c::driver::ExecuteCommandList(dst, dst_size, session, cmd_list, formatter.GetCurrentLength()); });
     }
 
-    Result WriteI2cRegister(i2c::driver::Session &session, const u8 *src, size_t src_size, const u8 *cmd, size_t cmd_size) {
-        if (src == nullptr || src_size == 0 || cmd == nullptr || cmd_size == 0) {
-            std::abort();
-        }
+    Result WriteI2cRegister(i2c::driver::I2cSession &session, const u8 *src, size_t src_size, const u8 *cmd, size_t cmd_size) {
+        AMS_ABORT_UNLESS(src != nullptr && src_size > 0);
+        AMS_ABORT_UNLESS(cmd != nullptr && cmd_size > 0);
 
         u8 cmd_list[0x20];
 
         /* N doesn't use a CommandListFormatter here... */
-        std::memcpy(&cmd_list[0], cmd, cmd_size);
-        std::memcpy(&cmd_list[cmd_size], src, src_size);
+        std::memcpy(cmd_list + 0, cmd, cmd_size);
+        std::memcpy(cmd_list + cmd_size, src, src_size);
 
-        return RetryUntilSuccess([&]() { return i2c::driver::Send(session, cmd_list, src_size + cmd_size, static_cast<I2cTransactionOption>(I2cTransactionOption_Start | I2cTransactionOption_Stop)); });
+        return RetryUntilSuccess([&]() { return i2c::driver::Send(session, cmd_list, src_size + cmd_size, static_cast<i2c::TransactionOption>(i2c::TransactionOption_StartCondition | i2c::TransactionOption_StopCondition)); });
     }
 
-    Result WriteI2cRegister(i2c::driver::Session &session, const u8 address, const u8 value) {
-        return WriteI2cRegister(session, &value, sizeof(value), &address, sizeof(address));
+    Result WriteI2cRegister(i2c::driver::I2cSession &session, const u8 address, const u8 value) {
+        return WriteI2cRegister(session, std::addressof(value), sizeof(value), &address, sizeof(address));
     }
 
 }

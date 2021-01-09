@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,18 +13,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include <stratosphere.hpp>
 #include "boot_battery_icons.hpp"
 #include "boot_display.hpp"
 
-namespace sts::boot {
+namespace ams::boot {
 
     namespace {
 
         /* Pull in icon definitions. */
-#include "boot_battery_icon_low.inc"
-#include "boot_battery_icon_charging.inc"
-#include "boot_battery_icon_charging_red.inc"
+        #include "boot_battery_icon_low.inc"
+        #include "boot_battery_icon_charging.inc"
+        #include "boot_battery_icon_charging_red.inc"
 
         /* Helpers. */
         void FillBatteryMeter(u32 *icon, const size_t icon_w, const size_t icon_h, const size_t meter_x, const size_t meter_y, const size_t meter_w, const size_t meter_h, const size_t fill_w) {
@@ -54,12 +54,12 @@ namespace sts::boot {
         {
             /* Low battery icon is shown for 5 seconds. */
             ShowDisplay(LowBatteryX, LowBatteryY, LowBatteryW, LowBatteryH, LowBattery);
-            svcSleepThread(5'000'000'000ul);
+            os::SleepThread(TimeSpan::FromSeconds(5));
         }
         FinalizeDisplay();
     }
 
-    void StartShowChargingIcon(size_t battery_percentage, bool wait) {
+    void StartShowChargingIcon(int battery_percentage, bool wait) {
         const bool is_red = battery_percentage <= 15;
 
         const size_t IconX = is_red ? ChargingRedBatteryX : ChargingBatteryX;
@@ -70,7 +70,7 @@ namespace sts::boot {
         const size_t IconMeterY = is_red ? ChargingRedBatteryMeterY : ChargingBatteryMeterY;
         const size_t IconMeterW = is_red ? ChargingRedBatteryMeterW : ChargingBatteryMeterW;
         const size_t IconMeterH = is_red ? ChargingRedBatteryMeterH : ChargingBatteryMeterH;
-        const size_t MeterFillW = static_cast<size_t>(IconMeterW * (1.0 - (0.0404 + 0.0096 * battery_percentage)) + 0.5);
+        const size_t MeterFillW = static_cast<size_t>(IconMeterW * (1.0 - (0.0404 + 0.0096 * static_cast<double>(battery_percentage))) + 0.5);
 
         /* Create stack buffer, copy icon into it, draw fill meter, draw. */
         {
@@ -84,7 +84,7 @@ namespace sts::boot {
 
         /* Wait for 2 seconds if we're supposed to. */
         if (wait) {
-            svcSleepThread(2'000'000'000ul);
+            os::SleepThread(TimeSpan::FromSeconds(2));
         }
     }
 

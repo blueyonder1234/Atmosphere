@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,8 +23,8 @@
 #include "loader.h"
 #include "fs_utils.h"
 #include "stage2.h"
-#include "lib/ini.h"
-#include "lib/log.h"
+#include "../../../fusee/common/ini.h"
+#include "../../../fusee/common/log.h"
 
 static loader_ctx_t g_loader_ctx = {0};
 

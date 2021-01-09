@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,7 +23,7 @@
 #include "utils.h"
 #include "exocfg.h"
 #include "se.h"
-#include "lib/log.h"
+#include "../../../fusee/common/log.h"
 #include "ips.h"
 
 /* IPS Patching adapted from Luma3DS (https://github.com/AuroraWright/Luma3DS/blob/master/sysmodules/loader/source/patcher.c) */
@@ -414,6 +414,18 @@ static const uint8_t g_fs_hashes[FS_VER_MAX][0x8] = {
 
     "\x46\x87\x40\x76\x1E\x19\x3E\xB7", /* FS_VER_9_0_0 */
     "\x7C\x95\x13\x76\xE5\xC1\x2D\xF8", /* FS_VER_9_0_0_EXFAT */
+
+    "\xB5\xE7\xA6\x4C\x6F\x5C\x4F\xE3", /* FS_VER_9_1_0 */
+    "\xF1\x96\xD1\x44\xD0\x44\x45\xB6", /* FS_VER_9_1_0_EXFAT */
+
+    "\x3E\xEB\xD9\xB7\xBC\xD1\xB5\xE0", /* FS_VER_10_0_0 */
+    "\x81\x7E\xA2\xB0\xB7\x02\xC1\xF3", /* FS_VER_10_0_0_EXFAT */
+
+    "\xA9\x52\xB6\x57\xAD\xF9\xC2\xBA", /* FS_VER_10_2_0 */
+    "\x16\x0D\x3E\x10\x4E\xAD\x61\x76", /* FS_VER_10_2_0_EXFAT */
+
+    "\xE3\x99\x15\x6E\x84\x4E\xB0\xAA", /* FS_VER_11_0_0 */
+    "\x0B\xA1\x5B\xB3\x04\xB5\x05\x63", /* FS_VER_11_0_0_EXFAT */
 };
 
 kip1_header_t *apply_kip_ips_patches(kip1_header_t *kip, size_t kip_size, emummc_fs_ver_t *out_fs_ver) {

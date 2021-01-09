@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2014, NVIDIA Corporation. All rights reserved.
  * Copyright (c) 2018 naehrwert
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -497,6 +497,7 @@
 #define MC_SECURITY_CARVEOUT4_CLIENT_ACCESS0                    0xd08
 #define MC_ERR_APB_ASID_UPDATE_STATUS                           0x9d0
 #define MC_DA_CONFIG0                                           0x9dc
+#define MC_UNTRANSLATED_REGION_CHECK                            0x948
 
 /* Memory Controller clients */
 #define CLIENT_ACCESS_NUM_CLIENTS   32

@@ -17,6 +17,15 @@
 .endm
 
 SVC_BEGIN svcQueryIoMapping
+	STP X0, X1, [SP, #-16]!
+	SVC 0x55
+	LDP X3, X4, [SP], #16
+	STR X1, [X3]
+	STR X2, [X4]
+	RET
+SVC_END
+
+SVC_BEGIN svcLegacyQueryIoMapping
 	STR X0, [SP, #-16]!
 	SVC 0x55
 	LDR X2, [SP], #16
@@ -44,6 +53,69 @@ SVC_END
 
 SVC_BEGIN svcSetProcessMemoryPermission
 	SVC 0x73
+	RET
+SVC_END
+
+SVC_BEGIN svcCreateThread
+	STR X0, [SP, #-16]!
+	SVC 0x8
+	LDR X2, [SP], #16
+	STR W1, [X2]
+	RET
+SVC_END
+
+SVC_BEGIN svcStartThread
+	SVC 0x9
+	RET
+SVC_END
+
+SVC_BEGIN svcExitThread
+	SVC 0xA
+	RET
+SVC_END
+
+SVC_BEGIN svcCloseHandle
+	SVC 0x16
+	RET
+SVC_END
+
+SVC_BEGIN svcWaitSynchronization
+	STR X0, [SP, #-16]!
+	SVC 0x18
+	LDR X2, [SP], #16
+	STR W1, [X2]
+	RET
+SVC_END
+
+SVC_BEGIN svcCreateSession
+	STP X0, X1, [SP, #-16]!
+	SVC 0x40
+	LDP X3, X4, [SP], #16
+	STR W1, [X3]
+	STR W2, [X4]
+	RET
+SVC_END
+
+SVC_BEGIN svcSendSyncRequest
+	SVC 0x21
+	RET
+SVC_END
+
+SVC_BEGIN svcReplyAndReceive
+	STR X0, [SP, #-16]!
+	SVC 0x43
+	LDR X2, [SP], #16
+	STR W1, [X2]
+	RET
+SVC_END
+
+SVC_BEGIN svcMapProcessMemory
+	SVC 0x74
+	RET
+SVC_END
+
+SVC_BEGIN svcUnmapProcessMemory
+	SVC 0x75
 	RET
 SVC_END
 

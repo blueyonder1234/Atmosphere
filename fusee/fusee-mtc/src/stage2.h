@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,7 +17,7 @@
 #ifndef FUSEE_STAGE2_H
 #define FUSEE_STAGE2_H
 
-#include "lib/log.h"
+#include "../../../fusee/common/log.h"
 
 #define MTC_ARGV_ARGUMENT_STRUCT 0
 #define MTC_ARGC 1

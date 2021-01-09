@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,73 +15,39 @@
  */
 
 #pragma once
-#include <switch.h>
 #include <stratosphere.hpp>
-#include <stratosphere/sm.hpp>
-#include <stratosphere/ncm.hpp>
 
-namespace sts::sm {
+namespace ams::sm {
 
     /* Service definition. */
-    class UserService final : public IServiceObject {
-        protected:
-            /* Command IDs. */
-            enum class CommandId {
-                Initialize                       = 0,
-                GetService                       = 1,
-                RegisterService                  = 2,
-                UnregisterService                = 3,
-
-                AtmosphereInstallMitm            = 65000,
-                AtmosphereUninstallMitm          = 65001,
-                /* Deprecated: AtmosphereAssociatePidTidForMitm = 65002 */
-                AtmosphereAcknowledgeMitmSession = 65003,
-                AtmosphereHasMitm                = 65004,
-                AtmosphereWaitMitm               = 65005,
-                AtmosphereDeclareFutureMitm      = 65006,
-
-                AtmosphereHasService             = 65100,
-                AtmosphereWaitService            = 65101,
-            };
+    class UserService final {
         private:
-            u64 pid = InvalidProcessId;
+            os::ProcessId process_id = os::InvalidProcessId;
             bool has_initialized = false;
         private:
             Result EnsureInitialized();
         public:
+            virtual ~UserService();
+        public:
             /* Official commands. */
-            virtual Result Initialize(PidDescriptor pid);
-            virtual Result GetService(Out<MovedHandle> out_h, ServiceName service);
-            virtual Result RegisterService(Out<MovedHandle> out_h, ServiceName service, u32 max_sessions, bool is_light);
-            virtual Result UnregisterService(ServiceName service);
+            Result RegisterClient(const sf::ClientProcessId &client_process_id);
+            Result GetServiceHandle(sf::OutMoveHandle out_h, ServiceName service);
+            Result RegisterService(sf::OutMoveHandle out_h, ServiceName service, u32 max_sessions, bool is_light);
+            Result UnregisterService(ServiceName service);
+            Result DetachClient(const sf::ClientProcessId &client_process_id);
 
             /* Atmosphere commands. */
-            virtual Result AtmosphereInstallMitm(Out<MovedHandle> srv_h, Out<MovedHandle> qry_h, ServiceName service);
-            virtual Result AtmosphereUninstallMitm(ServiceName service);
-            virtual Result AtmosphereAcknowledgeMitmSession(Out<u64> client_pid, Out<ncm::TitleId> client_tid, Out<MovedHandle> fwd_h, ServiceName service);
-            virtual Result AtmosphereHasMitm(Out<bool> out, ServiceName service);
-            virtual Result AtmosphereWaitMitm(ServiceName service);
-            virtual Result AtmosphereDeclareFutureMitm(ServiceName service);
+            Result AtmosphereInstallMitm(sf::OutMoveHandle srv_h, sf::OutMoveHandle qry_h, ServiceName service);
+            Result AtmosphereUninstallMitm(ServiceName service);
+            Result AtmosphereAcknowledgeMitmSession(sf::Out<MitmProcessInfo> client_info, sf::OutMoveHandle fwd_h, ServiceName service);
+            Result AtmosphereHasMitm(sf::Out<bool> out, ServiceName service);
+            Result AtmosphereWaitMitm(ServiceName service);
+            Result AtmosphereDeclareFutureMitm(ServiceName service);
+            Result AtmosphereClearFutureMitm(ServiceName service);
 
-            virtual Result AtmosphereHasService(Out<bool> out, ServiceName service);
-            virtual Result AtmosphereWaitService(ServiceName service);
-        public:
-            DEFINE_SERVICE_DISPATCH_TABLE {
-                MAKE_SERVICE_COMMAND_META(UserService, Initialize),
-                MAKE_SERVICE_COMMAND_META(UserService, GetService),
-                MAKE_SERVICE_COMMAND_META(UserService, RegisterService),
-                MAKE_SERVICE_COMMAND_META(UserService, UnregisterService),
-
-                MAKE_SERVICE_COMMAND_META(UserService, AtmosphereInstallMitm),
-                MAKE_SERVICE_COMMAND_META(UserService, AtmosphereUninstallMitm),
-                MAKE_SERVICE_COMMAND_META(UserService, AtmosphereAcknowledgeMitmSession),
-                MAKE_SERVICE_COMMAND_META(UserService, AtmosphereHasMitm),
-                MAKE_SERVICE_COMMAND_META(UserService, AtmosphereWaitMitm),
-                MAKE_SERVICE_COMMAND_META(UserService, AtmosphereDeclareFutureMitm),
-
-                MAKE_SERVICE_COMMAND_META(UserService, AtmosphereHasService),
-                MAKE_SERVICE_COMMAND_META(UserService, AtmosphereWaitService),
-            };
+            Result AtmosphereHasService(sf::Out<bool> out, ServiceName service);
+            Result AtmosphereWaitService(ServiceName service);
     };
+    static_assert(sm::impl::IsIUserInterface<UserService>);
 
 }

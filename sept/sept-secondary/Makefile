@@ -27,15 +27,15 @@ endif
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	src src/sdmmc src/lib src/lib/fatfs src/display
+SOURCES		:=	src ../../fusee/common ../../fusee/common/display ../../fusee/common/fatfs ../../fusee/common/sdmmc
 DATA		:=	data
-INCLUDES	:=	include  ../../common/include
+INCLUDES	:=	include  ../../libraries/libvapours/include
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv4t -mtune=arm7tdmi -mthumb -mthumb-interwork
-DEFINES :=	-D__BPMP__ -DFUSEE_STAGE1_SRC -DATMOSPHERE_GIT_BRANCH=\"$(AMSBRANCH)\" -DATMOSPHERE_GIT_REV=\"$(AMSREV)\"
+DEFINES :=	-D__BPMP__ -DSEPT_STAGE2_SRC -DATMOSPHERE_GIT_BRANCH=\"$(AMSBRANCH)\" -DATMOSPHERE_GIT_REV=\"$(AMSREV)\"
 
 CFLAGS	:= \
 	-g \
@@ -77,7 +77,7 @@ export TOPDIR	:=	$(CURDIR)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 			$(foreach dir,$(DATA),$(CURDIR)/$(dir)) \
-			$(AMS)/exosphere/rebootstub \
+			$(AMS)/exosphere/program/rebootstub \
 			$(TOPDIR)/key_derivation
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
@@ -118,7 +118,7 @@ export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 all: check_rebootstub check_key_derivation $(BUILD)
 
 check_rebootstub:
-	@$(MAKE) -C $(AMS)/exosphere/rebootstub all
+	@$(MAKE) -C $(AMS)/exosphere/program/rebootstub all
 
 check_key_derivation:
 	@$(MAKE) -C key_derivation
@@ -131,29 +131,37 @@ else
 	@touch $(TOPDIR)/$(TARGET).bin
 	@cp $(SEPT_00_ENC_PATH) $(TOPDIR)/$(TARGET)_00.enc
 	@cp $(SEPT_01_ENC_PATH) $(TOPDIR)/$(TARGET)_01.enc
+	@cp $(SEPT_DEV_00_ENC_PATH) $(TOPDIR)/$(TARGET)_dev_00.enc
+	@cp $(SEPT_DEV_01_ENC_PATH) $(TOPDIR)/$(TARGET)_dev_01.enc
 endif
 
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@$(MAKE) -C $(AMS)/exosphere/rebootstub clean
+	@$(MAKE) -C $(AMS)/exosphere/program/rebootstub clean
 	@$(MAKE) -C key_derivation clean
 	@rm -fr $(BUILD) $(TARGET).bin $(TARGET)_*.enc $(TARGET).elf
 
 
 #---------------------------------------------------------------------------------
 else
-.PHONY:	all $(OUTPUT).bin
+.PHONY:	all
 
 DEPENDS	:=	$(OFILES:.o=.d)
 
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-all	:	$(OUTPUT).enc
+all	:	$(OUTPUT)_dev_01.enc
 
-$(OUTPUT).enc	:	$(OUTPUT).bin
-	@python $(TOPDIR)/sept_sign.py $< $@
+$(OUTPUT)_dev_01.enc	:	$(OUTPUT)_dev_00.enc
+
+$(OUTPUT)_dev_00.enc	:	$(OUTPUT)_01.enc
+
+$(OUTPUT)_01.enc	:	$(OUTPUT)_00.enc
+
+$(OUTPUT)_00.enc	:	$(OUTPUT).bin
+	@python $(TOPDIR)/sept_sign.py $(OUTPUT).bin $(OUTPUT).enc
 	@echo built ... $(notdir $@)
 
 $(OUTPUT).bin	:	$(OUTPUT).elf

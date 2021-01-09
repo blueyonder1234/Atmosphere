@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,7 +19,6 @@
 
 #include "fs_dev.h"
 #include "raw_dev.h"
-#include "emu_dev.h"
 
 int nxfs_init();
 int nxfs_end();

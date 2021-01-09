@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,7 +16,7 @@
  
 #include "console.h"
 #include "di.h"
-#include "display/video_fb.h"
+#include "../../../fusee/common/display/video_fb.h"
 
 static void *g_framebuffer = NULL;
 static bool g_display_initialized = false;

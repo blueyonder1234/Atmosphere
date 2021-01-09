@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Atmosphère-NX
+ * Copyright (c) 2018-2020 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,11 +13,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include <stratosphere.hpp>
 #include "boot_change_voltage.hpp"
-#include "boot_pmc_wrapper.hpp"
 
-namespace sts::boot {
+namespace ams::boot {
 
     namespace {
 
@@ -36,11 +35,11 @@ namespace sts::boot {
 
     void ChangeGpioVoltageTo1_8v() {
         /* Write mask to APBDEV_PMC_PWR_DET, then clear APBDEV_PMC_PWR_DET_VAL. */
-        WritePmcRegister(PmcPwrDet, VoltageChangeMask, VoltageChangeMask);
-        WritePmcRegister(PmcPwrDetVal, 0, VoltageChangeMask);
+        dd::ReadModifyWriteIoRegister(PmcPwrDet,    VoltageChangeMask, VoltageChangeMask);
+        dd::ReadModifyWriteIoRegister(PmcPwrDetVal,                 0, VoltageChangeMask);
 
         /* Sleep for 100 us. */
-        svcSleepThread(100'000ul);
+        os::SleepThread(TimeSpan::FromMicroSeconds(100));
     }
 
 }

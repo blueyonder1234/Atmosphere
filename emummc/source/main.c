@@ -33,21 +33,27 @@
 void __init();
 void __initheap(void);
 void setup_hooks(void);
-void setup_nintendo_paths(void);
 void __libc_init_array(void);
+void setup_nintendo_paths(void);
 void hook_function(uintptr_t source, uintptr_t target);
 
 void *__stack_top;
 uintptr_t text_base;
+size_t fs_code_size;
+u8 *fs_rw_mapping = NULL;
+Handle self_proc_handle = 0;
 char inner_heap[INNER_HEAP_SIZE];
 size_t inner_heap_size = INNER_HEAP_SIZE;
+
 extern char _start;
 extern char __argdata__;
 
 // Nintendo Path
-// TODO
 static char nintendo_path[0x80] = "Nintendo";
 
+// 1.0.0 requires special path handling because it has separate album and contents paths.
+#define FS_100_ALBUM_PATH    0
+#define FS_100_CONTENTS_PATH 1
 static char nintendo_path_album_100[0x100] = "/Nintendo/Album";
 static char nintendo_path_contents_100[0x100] = "/Nintendo/Contents";
 
@@ -57,6 +63,7 @@ static const fs_offsets_t *fs_offsets;
 // Defined by linkerscript
 #define INJECTED_SIZE ((uintptr_t)&__argdata__ - (uintptr_t)&_start)
 #define INJECT_OFFSET(type, offset) (type)(text_base + INJECTED_SIZE + offset)
+#define FS_CODE_BASE INJECT_OFFSET(uintptr_t, 0)
 
 #define GENERATE_ADD(register, register_target, value) (0x91000000 | value << 10 | register << 5 | register_target)
 #define GENERATE_ADRP(register, page_addr) (0x90000000 | ((((page_addr) >> 12) & 0x3) << 29) | ((((page_addr) >> 12) & 0x1FFFFC) << 3) | ((register) & 0x1F))
@@ -85,7 +92,7 @@ volatile __attribute__((aligned(0x1000))) emuMMC_ctx_t emuMMC_ctx = {
     .fs_ver = FS_VER_MAX,
 
     // SD Default Metadata
-    .SD_Type = emuMMC_SD,
+    .SD_Type = emuMMC_SD_Raw,
     .SD_StoragePartitionOffset = 0,
 
     // EMMC Default Metadata
@@ -145,15 +152,117 @@ void __initheap(void)
     fake_heap_end = (char *)addr + size;
 }
 
+static void _receive_process_handle_thread(void *_session_handle) {
+    Result rc;
+
+    // Convert the argument to a handle copy we can use.
+    Handle session_handle = *(Handle*)_session_handle;
+
+    // Receive the request from the client thread.
+    memset(armGetTls(), 0, 0x10);
+    s32 idx = 0;
+    rc = svcReplyAndReceive(&idx, &session_handle, 1, INVALID_HANDLE, UINT64_MAX);
+    if (rc != 0)
+    {
+        fatal_abort(Fatal_BadResult);
+    }
+
+    // Set the process handle.
+    self_proc_handle = ((u32 *)armGetTls())[3];
+
+    // Close the session.
+    svcCloseHandle(session_handle);
+
+    // Terminate ourselves.
+    svcExitThread();
+
+    // This code will never execute.
+    while (true);
+}
+
+static void _init_process_handle(void) {
+    Result rc;
+    u8 temp_thread_stack[0x1000];
+
+    // Create a new session to transfer our process handle to ourself
+    Handle server_handle, client_handle;
+    rc = svcCreateSession(&server_handle, &client_handle, 0, 0);
+    if (rc != 0)
+    {
+        fatal_abort(Fatal_BadResult);
+    }
+
+    // Create a new thread to receive our handle.
+    Handle thread_handle;
+    rc = svcCreateThread(&thread_handle, _receive_process_handle_thread, &server_handle, temp_thread_stack + sizeof(temp_thread_stack), 0x20, 3);
+    if (rc != 0)
+    {
+        fatal_abort(Fatal_BadResult);
+    }
+
+    // Start the new thread.
+    rc = svcStartThread(thread_handle);
+    if (rc != 0)
+    {
+        fatal_abort(Fatal_BadResult);
+    }
+
+    // Send the message.
+    static const u32 SendProcessHandleMessage[4] = { 0x00000000, 0x80000000, 0x00000002, CUR_PROCESS_HANDLE };
+    memcpy(armGetTls(), SendProcessHandleMessage, sizeof(SendProcessHandleMessage));
+    svcSendSyncRequest(client_handle);
+
+    // Close the session handle.
+    svcCloseHandle(client_handle);
+
+    // Wait for the thread to be done.
+    rc = svcWaitSynchronizationSingle(thread_handle, UINT64_MAX);
+    if (rc != 0)
+    {
+        fatal_abort(Fatal_BadResult);
+    }
+
+    // Close the thread handle.
+    svcCloseHandle(thread_handle);
+}
+
+static void _map_fs_rw(void) {
+    Result rc;
+
+    do {
+        fs_rw_mapping = (u8 *)(smcGenerateRandomU64() & 0xFFFFFF000ull);
+        rc = svcMapProcessMemory(fs_rw_mapping, self_proc_handle, FS_CODE_BASE, fs_code_size);
+    } while (rc == 0xDC01 || rc == 0xD401);
+
+    if (rc != 0)
+    {
+        fatal_abort(Fatal_BadResult);
+    }
+}
+
+static void _unmap_fs_rw(void) {
+    Result rc = svcUnmapProcessMemory(fs_rw_mapping, self_proc_handle, FS_CODE_BASE, fs_code_size);
+    if (rc != 0)
+    {
+        fatal_abort(Fatal_BadResult);
+    }
+
+    fs_rw_mapping = NULL;
+}
+
+static void _write32(uintptr_t source, u32 value) {
+    *((u32 *)(fs_rw_mapping + (source - FS_CODE_BASE))) = value;
+}
+
 void hook_function(uintptr_t source, uintptr_t target)
 {
     u32 branch_opcode = GENERATE_BRANCH(source, target);
-    smcWriteAddress32((void *)source, branch_opcode);
+    _write32(source, branch_opcode);
 }
 
 void write_nop(uintptr_t source)
 {
-    smcWriteAddress32((void *)source, GENERATE_NOP());
+    _write32(source, GENERATE_NOP());
 }
 
 void write_adrp_add(int reg, uintptr_t pc, uintptr_t add_rel_offset, intptr_t destination)
@@ -164,8 +273,8 @@ void write_adrp_add(int reg, uintptr_t pc, uintptr_t add_rel_offset, intptr_t de
     uint32_t opcode_adrp = GENERATE_ADRP(reg, offset);
     uint32_t opcode_add = GENERATE_ADD(reg, reg, (destination & 0x00000FFF));
 
-    smcWriteAddress32((void *)pc, opcode_adrp);
-    smcWriteAddress32((void *)add_opcode_location, opcode_add);
+    _write32(pc, opcode_adrp);
+    _write32(add_opcode_location, opcode_add);
 }
 
 void setup_hooks(void)
@@ -176,6 +285,9 @@ void setup_hooks(void)
     INJECT_HOOK(fs_offsets->sdmmc_wrapper_read, sdmmc_wrapper_read);
     // sdmmc_wrapper_write hook
     INJECT_HOOK(fs_offsets->sdmmc_wrapper_write, sdmmc_wrapper_write);
+	// sdmmc_wrapper_controller_open hook
+    if (fs_offsets->sdmmc_accessor_controller_open)
+        INJECT_HOOK(fs_offsets->sdmmc_accessor_controller_open, sdmmc_wrapper_controller_open);
     // sdmmc_wrapper_controller_close hook
     INJECT_HOOK(fs_offsets->sdmmc_accessor_controller_close, sdmmc_wrapper_controller_close);
 
@@ -237,7 +349,7 @@ static void load_emummc_ctx(void)
         emuMMC_ctx.id = config.base_cfg.id;
         emuMMC_ctx.EMMC_Type = (enum emuMMC_Type)config.base_cfg.type;
         emuMMC_ctx.fs_ver = (enum FS_VER)config.base_cfg.fs_version;
-        if (emuMMC_ctx.EMMC_Type == emuMMC_SD)
+        if (emuMMC_ctx.EMMC_Type == emuMMC_SD_Raw)
         {
             emuMMC_ctx.EMMC_StoragePartitionOffset = config.partition_cfg.start_sector;
         }
@@ -275,23 +387,18 @@ void setup_nintendo_paths(void)
         // 1.0.0 needs special handling because it uses two paths.
         // Do album path
         {
-            int path_len = snprintf(nintendo_path_album_100, sizeof(nintendo_path_album_100), "/%s/Album", nintendo_path);
+            snprintf(nintendo_path_album_100, sizeof(nintendo_path_album_100), "/%s/Album", nintendo_path);
             intptr_t nintendo_album_path_location = (intptr_t)&nintendo_path_album_100;
-            intptr_t album_path_location = nintendo_album_path_location + path_len - 6; // "/Album"
-            uintptr_t fs_n_adrp_opcode_location = INJECT_OFFSET(uintptr_t, fs_offsets->nintendo_paths[0].adrp_offset);
-            uintptr_t fs_adrp_opcode_location = INJECT_OFFSET(uintptr_t, fs_offsets->nintendo_paths[1].adrp_offset);
-            write_adrp_add(fs_offsets->nintendo_paths[0].opcode_reg, fs_n_adrp_opcode_location, fs_offsets->nintendo_paths[0].add_rel_offset, nintendo_album_path_location);
-            write_adrp_add(fs_offsets->nintendo_paths[1].opcode_reg, fs_adrp_opcode_location, fs_offsets->nintendo_paths[1].add_rel_offset, album_path_location);
+            uintptr_t fs_adrp_opcode_location = INJECT_OFFSET(uintptr_t, fs_offsets->nintendo_paths[FS_100_ALBUM_PATH].adrp_offset);
+            write_adrp_add(fs_offsets->nintendo_paths[FS_100_ALBUM_PATH].opcode_reg, fs_adrp_opcode_location, fs_offsets->nintendo_paths[FS_100_ALBUM_PATH].add_rel_offset, nintendo_album_path_location);
         }
+
         // Do contents path
         {
-            int path_len = snprintf(nintendo_path_contents_100, sizeof(nintendo_path_contents_100), "/%s/Contents", nintendo_path);
+            snprintf(nintendo_path_contents_100, sizeof(nintendo_path_contents_100), "/%s/Contents", nintendo_path);
             intptr_t nintendo_contents_path_location = (intptr_t)&nintendo_path_contents_100;
-            intptr_t contents_path_location = nintendo_contents_path_location + path_len - 9; // "/Contents"
-            uintptr_t fs_n_adrp_opcode_location = INJECT_OFFSET(uintptr_t, fs_offsets->nintendo_paths[2].adrp_offset);
-            uintptr_t fs_adrp_opcode_location = INJECT_OFFSET(uintptr_t, fs_offsets->nintendo_paths[3].adrp_offset);
-            write_adrp_add(fs_offsets->nintendo_paths[2].opcode_reg, fs_n_adrp_opcode_location, fs_offsets->nintendo_paths[2].add_rel_offset, nintendo_contents_path_location);
-            write_adrp_add(fs_offsets->nintendo_paths[3].opcode_reg, fs_adrp_opcode_location, fs_offsets->nintendo_paths[3].add_rel_offset, contents_path_location);
+            uintptr_t fs_adrp_opcode_location = INJECT_OFFSET(uintptr_t, fs_offsets->nintendo_paths[FS_100_CONTENTS_PATH].adrp_offset);
+            write_adrp_add(fs_offsets->nintendo_paths[FS_100_CONTENTS_PATH].opcode_reg, fs_adrp_opcode_location, fs_offsets->nintendo_paths[FS_100_CONTENTS_PATH].add_rel_offset, nintendo_contents_path_location);
         }
     }
 }
@@ -308,14 +415,21 @@ void __init()
 
     text_base = meminfo.addr;
 
+    // Get code size
+    svcQueryMemory(&meminfo, &pageinfo, FS_CODE_BASE);
+    fs_code_size = meminfo.size;
+
     load_emummc_ctx();
 
     fs_offsets = get_fs_offsets(emuMMC_ctx.fs_ver);
 
+    _init_process_handle();
+    _map_fs_rw();
     setup_hooks();
     populate_function_pointers();
     write_nops();
     setup_nintendo_paths();
+    _unmap_fs_rw();
 
     clock_enable_i2c5();
     i2c_init();
